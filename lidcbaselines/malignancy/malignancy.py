@@ -12,9 +12,9 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 import torchvision.transforms as transforms
 from argparse import ArgumentParser
-from lidcbaselines.modules import resnet18, Flatten, auc, accuracy
+from lidcbaselines.modules import resnet18, Flatten
 from lidcbaselines.dataloader import NoduleDataset
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_auc_score, auc, precision_recall_curve
 
 import pytorch_lightning as pl
 
@@ -78,8 +78,14 @@ class LIDCBaseline(pl.LightningModule):
         # calculate some metrics
         auc_val      = roc_auc_score(ys.cpu().long(), y_hats.cpu())
         accuracy_val = accuracy_score(ys.cpu().long(), (y_hats.cpu()>0.0).long())
-        val_metrics  = {'auc': auc_val, 'accuracy': accuracy_val}
+        precision, recall, thresholds = precision_recall_curve(ys.cpu().long(), y_hats.cpu())
+        prauc_val    = auc(recall, precision) # put recall as first argument because this argument needs to be sorted
+        val_metrics  = {'auc': auc_val, 'accuracy': accuracy_val, 'prauc': prauc_val}
         val_metrics.update({'avg_val_loss': avg_loss})
+
+        # possibly monitor preds
+        if self.hparams.monitor_preds:
+            self.experiment.add_histogram('preds', y_hats, self.global_step)
 
         return val_metrics
 
@@ -117,6 +123,7 @@ class LIDCBaseline(pl.LightningModule):
         parser.add_argument('--batch_size', default=128, type=int)
         parser.add_argument('--split_seed', default=123, type=int)
         parser.add_argument('--data_root', default=Path(root_dir) / 'data', type=Path)
+        parser.add_argument('--monitor_preds', action='store_true', default=False, help='export histograms of preds')
 
         # training specific (for this model)
         parser.add_argument('--max_nb_epochs', default=1000, type=int)

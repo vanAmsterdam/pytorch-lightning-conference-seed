@@ -81,13 +81,13 @@ def random_crop(x, num_vox=None, size=63, max_crop_translation=None):
 def center_crop(x, num_vox=(1,1,1)):
     return x[1:,1:,1:]
 
-def random_flip(x, axis=(0,1,2)):
+def random_flip(x, axes=(0,1)):
     """
-    Flip volume along any of the axis
+    Flip volume along any of the axes
     """
     assert isinstance(x, np.ndarray)
-    flips = np.random.randint(0,2, size=len(axis))
-    for flip, ax in zip(flips, axis):
+    flips = np.random.randint(0,2, size=len(axes))
+    for flip, ax in zip(flips, axes):
         if flip == 1:
             x = np.flip(x, ax)
     
@@ -122,14 +122,16 @@ def safe_tensor(x):
 
 def get_tfms(split='train'):
     tfms = [normalize]
+    tfms = []
     if split == 'train':
         tfms += [
-            random_crop
+            random_crop,
             # random_flip,
-            # random_rotation_90
+            random_rotation_90
         ]
     else:
-        tfms += [center_crop]
+        # tfms += [center_crop]
+        tfms += [random_crop]
     tfms += [add_channel_dim, safe_tensor]
     return transforms.Compose(tfms)
 
