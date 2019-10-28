@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 from lidcbaselines.modules import resnet18, Flatten
 from lidcbaselines.dataloader import NoduleDataset
 from sklearn.metrics import accuracy_score, roc_auc_score, auc, precision_recall_curve
-
+from test_tube import HyperOptArgumentParser
 import pytorch_lightning as pl
 
 
@@ -30,10 +30,24 @@ class LIDCBaseline(pl.LightningModule):
         df['label']   = df['malignancy_binary']
         df['filedir'] = hparams.data_root
 
-        rs = np.random.RandomState(seed=hparams.split_seed)
-        train_ids = rs.rand(len(df)) < 0.8
-        self.dftrain = df[train_ids]
-        self.dfvalid = df[~train_ids]
+        # determine train / valid split
+        rs        = np.random.RandomState(seed=hparams.split_seed)
+        idxs      = np.arange(len(df))
+        rs.shuffle(idxs)
+        num_train = int(.8*len(df))
+        train_ids = idxs[:num_train]
+        valid_ids = idxs[num_train:]
+
+        # possibly subsample train
+        if hparams.trn_subsample_pct < 1.0:
+            train_ids = train_ids[:int(hparams.trn_subsample_pct*num_train)]
+        if hparams.trn_nb > 0:
+            train_ids = train_ids[:hparams.trn_nb]
+        if hparams.trn_subsample_pct < 1.0 and hparams.trn_nb > 0:
+            raise ValueError(f'please specify only trn_subsample_pct or trn_nb, they are: {hparams.trn_subsample_pct} and {hparams.trn_nb}')
+
+        self.dftrain = df.iloc[train_ids]
+        self.dfvalid = df.iloc[valid_ids]
 
         # build model
         self.__build_model()
@@ -95,7 +109,7 @@ class LIDCBaseline(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
 
     @pl.data_loader
-    def tng_dataloader(self):
+    def train_dataloader(self):
         return DataLoader(NoduleDataset(self.dftrain, self.hparams, split='train'), 
                           batch_size=self.hparams.batch_size,
                           shuffle=True)
@@ -118,15 +132,23 @@ class LIDCBaseline(pl.LightningModule):
         Specify the hyperparams for this LightningModule
         """
         # MODEL specific
-        parser = ArgumentParser(parents=[parent_parser])
-        parser.add_argument('--learning_rate', default=0.02, type=float)
+        parser = HyperOptArgumentParser(strategy='grid_search', parents=[parent_parser])
+        parser.add_argument('--learning_rate', default=0.01, type=float)
         parser.add_argument('--batch_size', default=128, type=int)
-        parser.add_argument('--split_seed', default=123, type=int)
+        # parser.add_argument('--split_seed', default=123, type=int)
+        parser.opt_list('--split_seed', default=1, type=int, tunable=True,
+                        options=list(1000+np.arange(20).astype(np.int32)))
+                        # options=list(1000+np.arange(2).astype(np.int32)))
         parser.add_argument('--data_root', default=Path(root_dir) / 'data', type=Path)
         parser.add_argument('--monitor_preds', action='store_true', default=False, help='export histograms of preds')
+        parser.add_argument('--trn_subsample_pct', default=1.0, type=float, help='subsample percentage of training data')
+        parser.opt_list('--trn_nb', default=0, type=int, help='number of training samples (0 = take all samples)', tunable=True,
+                        options=[2000, 1750, 1500, 1250, 1000, 750, 500])
+                        # options=[750, 500])
+        # parser.add_argument('--trn_nb', default=0, type=int, help='number of training samples (0 = take all samples)')
 
         # training specific (for this model)
-        parser.add_argument('--max_nb_epochs', default=1000, type=int)
+        parser.add_argument('--max_nb_epochs', default=200, type=int)
 
         return parser
 

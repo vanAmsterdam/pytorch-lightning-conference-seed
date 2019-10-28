@@ -5,28 +5,31 @@ from pytorch_lightning import Trainer
 from argparse import ArgumentParser
 from lidcbaselines.malignancy.malignancy import LIDCBaseline
 from pathlib import Path
-from test_tube import Experiment
+from pytorch_lightning.logging import TestTubeLogger
 
-def main(hparams):
+def main(hparams, gpu_ids=None):
     # init module
     model = LIDCBaseline(hparams)
 
+    # if gpu argument is passed, take it as the hparam gpu
+    if gpu_ids:
+        hparams.gpus = gpu_ids
+
     # generate experiment
-    log_dir = Path(__file__).parent / 'experiments'
     if hparams.version == '':
         hparams.version = 0.1
 
-    exp = Experiment(
-        name='malignancy',
-        create_git_tag=True,
-        save_dir=log_dir,
-        autosave=True,
-        version=hparams.version
+    tt_logger = TestTubeLogger(
+        save_dir=".",
+        name="experiments",
+        debug=False,
+        create_git_tag=False
     )
 
     # most basic trainer, uses good defaults
     trainer = Trainer(
-        experiment = exp,
+        logger = tt_logger,
+        # experiment = exp,
         max_nb_epochs=hparams.max_nb_epochs,
         gpus=hparams.gpus,
         nb_gpu_nodes=hparams.nodes,
@@ -50,5 +53,7 @@ if __name__ == '__main__':
 
     # parse params
     hparams = parser.parse_args()
-
-    main(hparams)
+    
+    # run trial(s)
+    # hparams.optimize_parallel_gpu(main, hparams.gpus)
+    hparams.optimize_parallel_gpu(main, ['0','1'])
