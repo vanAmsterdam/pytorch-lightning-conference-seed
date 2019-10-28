@@ -31,7 +31,8 @@ def main(hparams, gpu_ids=None):
         logger = tt_logger,
         # experiment = exp,
         max_nb_epochs=hparams.max_nb_epochs,
-        gpus=hparams.gpus,
+        # gpus=hparams.gpus,
+        gpus=gpu_ids,
         nb_gpu_nodes=hparams.nodes,
         nb_sanity_val_steps=2
     )
@@ -56,4 +57,4 @@ if __name__ == '__main__':
     
     # run trial(s)
     # hparams.optimize_parallel_gpu(main, hparams.gpus)
-    hparams.optimize_parallel_gpu(main, ['0','1'])
+    hparams.optimize_parallel_gpu(main, ['0'])

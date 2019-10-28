@@ -72,7 +72,8 @@ class LIDCBaseline(pl.LightningModule):
         x, y     = batch
         y_hat    = self.forward(x)
         loss_val = self.loss(y_hat, y)
-        return {'loss': loss_val}
+        logs     = {'train_loss': loss_val}
+        return {'loss': loss_val, 'log': logs}
 
     def validation_step(self, batch, batch_idx):
         # OPTIONAL
@@ -97,11 +98,12 @@ class LIDCBaseline(pl.LightningModule):
         val_metrics  = {'auc': auc_val, 'accuracy': accuracy_val, 'prauc': prauc_val}
         val_metrics.update({'avg_val_loss': avg_loss})
 
+
         # possibly monitor preds
         if self.hparams.monitor_preds:
             self.experiment.add_histogram('preds', y_hats, self.global_step)
 
-        return val_metrics
+        return {'avg_val_loss': avg_loss, 'log': val_metrics}
 
     def configure_optimizers(self):
         # REQUIRED
