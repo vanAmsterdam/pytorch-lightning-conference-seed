@@ -6,28 +6,42 @@ from argparse import ArgumentParser
 from lidcbaselines.malignancy.malignancy import LIDCBaseline
 from pathlib import Path
 from pytorch_lightning.logging import TestTubeLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 def main(hparams, gpu_ids=None):
-    # init module
-    model = LIDCBaseline(hparams)
-
     # if gpu argument is passed, take it as the hparam gpu
     if gpu_ids:
         hparams.gpus = gpu_ids
 
-    # generate experiment
-    if hparams.version == '':
-        hparams.version = 0.1
-
     tt_logger = TestTubeLogger(
         save_dir=".",
-        name="experiments",
+        name="ntrain",
+        version=f"ntr{hparams.trn_nb}-seed{hparams.split_seed}",
         debug=False,
         create_git_tag=False
     )
+    log_path = Path(tt_logger.save_dir, tt_logger.name, f"version_{tt_logger.version}")
+
+    checkpoint_callback = ModelCheckpoint(
+        filepath=log_path / 'checkpoints',
+        save_best_only=True,
+        verbose=False,
+        monitor='avg_val_loss',
+        mode='min',
+        prefix=''
+    )
+    
+    # check if experiment already exists
+    if log_path.exists():
+        print(f"experiment {tt_logger.name} version {tt_logger.version} already exists, skipping")
+        return 
+    
+    # init module
+    model = LIDCBaseline(hparams)
 
     # most basic trainer, uses good defaults
     trainer = Trainer(
+        checkpoint_callback=checkpoint_callback,
         logger = tt_logger,
         # experiment = exp,
         max_nb_epochs=hparams.max_nb_epochs,

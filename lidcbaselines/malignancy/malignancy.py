@@ -145,7 +145,7 @@ class LIDCBaseline(pl.LightningModule):
         parser.add_argument('--monitor_preds', action='store_true', default=False, help='export histograms of preds')
         parser.add_argument('--trn_subsample_pct', default=1.0, type=float, help='subsample percentage of training data')
         parser.opt_list('--trn_nb', default=0, type=int, help='number of training samples (0 = take all samples)', tunable=True,
-                        options=[2000, 1750, 1500, 1250, 1000, 750, 500])
+                        options=[2000, 1500, 1000, 500])
                         # options=[750, 500])
         # parser.add_argument('--trn_nb', default=0, type=int, help='number of training samples (0 = take all samples)')
 
