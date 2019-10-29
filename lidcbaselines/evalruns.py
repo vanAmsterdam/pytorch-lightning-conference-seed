@@ -31,6 +31,7 @@ def main(args):
     metricdf  = pd.concat(metricdfs)
     metricdf['ntr']  = metricdf.version.apply(lambda x: re.search(r'(?<=ntr)(\d+)', x).group())
     metricdf['seed'] = metricdf.version.apply(lambda x: re.search(r'(?<=seed)(\d+)', x).group())
+    metricdf = metricdf.join((metricdf.groupby('version').epoch.max()==metricdf.epoch.max()).rename('completed'), on='version')
     metricdf.to_csv(expdir / 'allmetrics.csv', index=False)
 
     # aggregate metrics by version
@@ -39,13 +40,18 @@ def main(args):
     byrundfs    = {}
     bytypedfs   = {}
     for metric in metricnames:
-        aggops  = ['count', 'mean', 'std', 'min', 'max']
+        groupvars = ['version', 'ntr', 'seed', 'completed']
+        aggops    = ['count', 'mean', 'std', 'min', 'max']
         if metric in minmetrics:
-            df = metricdf.groupby(['version', 'ntr', 'seed'])[metric].min()
+            df = metricdf.groupby(groupvars)[metric].min()
         else:
-            df = metricdf.groupby(['version', 'ntr', 'seed'])[metric].max()
+            df = metricdf.groupby(groupvars)[metric].max()
         byrundfs[metric] = df
-        
+
+        # filter on completed runs only
+        runcomplete = metricdf.groupby([x for x in groupvars if x not in ['completed']]).completed.max()
+        df = df[runcomplete]
+
         # aggregate by type
         df = df.groupby('ntr').agg(aggops)
         df['ntr_int'] = df.index.astype(int)
