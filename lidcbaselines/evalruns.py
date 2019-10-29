@@ -36,16 +36,29 @@ def main(args):
     # aggregate metrics by version
     metricnames = args.metrics.split(',')
     minmetrics  = args.minmetrics.split(',')
-    aggdfs      = {}
+    byrundfs    = {}
+    bytypedfs   = {}
     for metric in metricnames:
+        aggops  = ['count', 'mean', 'std', 'min', 'max']
         if metric in minmetrics:
-            aggdf = metricdf.groupby(['version', 'ntr'])[metric].min().groupby('ntr').agg(['count', 'min', 'std'])
+            df = metricdf.groupby(['version', 'ntr', 'seed'])[metric].min()
         else:
-            aggdf = metricdf.groupby(['version', 'ntr'])[metric].max().groupby('ntr').agg(['count', 'max', 'std'])
-        aggdfs[metric] = aggdf
-    aggmetrics = pd.concat(aggdfs)
+            df = metricdf.groupby(['version', 'ntr', 'seed'])[metric].max()
+        byrundfs[metric] = df
+        
+        # aggregate by type
+        df = df.groupby('ntr').agg(aggops)
+        df['ntr_int'] = df.index.astype(int)
+        df.sort_values(axis=0, by=['ntr_int'], ascending=False, inplace=True)
+        bytypedfs[metric] = df
+
+    metricsbyrun = pd.concat(byrundfs, axis=1)
+    metricsbyrun.columns = [x+'_min' if x in minmetrics else x+'_max' for x in metricsbyrun.columns]
+    aggmetrics   = pd.concat(bytypedfs)
+    print(metricsbyrun)
     print(aggmetrics)
-    aggmetrics.to_csv(expdir / 'aggmetrics.csv', index=False)
+    metricsbyrun.to_csv(expdir / 'metricsbyrun.csv', index=True)
+    aggmetrics.to_csv(expdir / 'aggmetrics.csv', index=True)
 
 
 if __name__ == '__main__':
