@@ -153,4 +153,3 @@ class LIDCBaseline(pl.LightningModule):
         parser.add_argument('--max_nb_epochs', default=200, type=int)
 
         return parser
-
