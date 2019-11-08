@@ -5,8 +5,8 @@ from pathlib import Path
 anndf = pd.read_csv(Path('resources') / 'annotation_df.csv')
 measurementcols = ['volume', 'surface_area', 'diameter']
 labelcols = ['sublety', 'internalstructure', 'calcification', 'sphericity', 'margin', 'lobulation', 'spiculation', 'texture', 'malignancy']
-noduledf  = anndf.groupby('nodule_id')[measurementcols+labelcols].agg(['mean', 'min', 'max'])
 # noduledf  = anndf.groupby('nodule_id')[measurementcols+labelcols].agg(['mean', 'min', 'max'])
+noduledf  = anndf.groupby('nodule_id')[measurementcols+labelcols].agg('mean')
 noduledf['filename'] = [str(x) + 'a1.npy' for x in noduledf.index.tolist()]
 
 binarylabelcols = [x+'_binary' for x in labelcols]
