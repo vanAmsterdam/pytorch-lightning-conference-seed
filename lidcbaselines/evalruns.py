@@ -25,12 +25,17 @@ def main(args):
     # gather all metrics
     metricdfs = {}
     for vname, vpath in zip(versionnames, versionpaths):
-        mdf              = pd.read_csv(vpath / 'metrics.csv')
+        try:
+            mdf = pd.read_csv(vpath / 'metrics.csv')
+        except Exception as e:
+            print(f"error loading file {vpath / 'metrics.csv'}: {e}")
         mdf['version']   = vname
         metricdfs[vname] = mdf
     metricdf  = pd.concat(metricdfs)
     metricdf['ntr']  = metricdf.version.apply(lambda x: re.search(r'(?<=ntr)(\d+)', x).group())
     metricdf['seed'] = metricdf.version.apply(lambda x: re.search(r'(?<=seed)(\d+)', x).group())
+    if 'outcome' in metricdf.version.iloc[0]:
+        metricdf['outcome'] = metricdf.version.apply(lambda x: re.search(r'(?<=outcome)(.*)(?=-ntr)', x).group())
     metricdf = metricdf.join((metricdf.groupby('version').epoch.max()==metricdf.epoch.max()).rename('completed'), on='version')
     metricdf.to_csv(expdir / 'allmetrics.csv', index=False)
 
@@ -41,6 +46,8 @@ def main(args):
     bytypedfs   = {}
     for metric in metricnames:
         groupvars = ['version', 'ntr', 'seed', 'completed']
+        if 'outcome' in metricdf.columns:
+            groupvars += ['outcome']
         aggops    = ['count', 'mean', 'std', 'min', 'max']
         if metric in minmetrics:
             df = metricdf.groupby(groupvars)[metric].min()
@@ -49,8 +56,8 @@ def main(args):
         byrundfs[metric] = df
 
         # filter on completed runs only
-        runcomplete = metricdf.groupby([x for x in groupvars if x not in ['completed']]).completed.max()
-        df = df[runcomplete]
+        # runcomplete = metricdf.groupby([x for x in groupvars if x not in ['completed']]).completed.max()
+        # df = df[runcomplete]
 
         # aggregate by type
         df = df.groupby('ntr').agg(aggops)
